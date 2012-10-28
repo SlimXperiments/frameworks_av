@@ -101,9 +101,13 @@ protected:
 private:
     static Mutex gSnifferMutex;
     static List<SnifferFunc> gSniffers;
-    static bool gSniffersRegistered;
-
+#ifdef QCOM_LEGACY_MMPARSER
+    static List<SnifferFunc>::iterator extendedSnifferPosition;
+    static void RegisterSniffer_l(SnifferFunc func, bool isExtendedExtractor = false);
+#else
     static void RegisterSniffer_l(SnifferFunc func);
+#endif
+    static bool gSniffersRegistered;
 
     DataSource(const DataSource &);
     DataSource &operator=(const DataSource &);
