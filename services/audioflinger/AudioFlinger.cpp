@@ -1104,6 +1104,42 @@ status_t AudioFlinger::setParameters(audio_io_handle_t ioHandle, const String8& 
             }
             mHardwareStatus = AUDIO_HW_IDLE;
         }
+
+        // invalidate all tracks of type MUSIC. This is handled in the player as a teardown
+        // event and can be used for fallback and retry.
+        AudioParameter param = AudioParameter(keyValuePairs);
+        String8 value, key;
+        int i = 0;
+
+        key = String8(AudioParameter::keySoundCardStatus);
+        if (param.get(key, value) == NO_ERROR) {
+            ALOGV("Set keySoundCardStatus:%s", value.string());
+            if ((value.find("OFFLINE", 0) != -1) ) {
+                ALOGV("OFFLINE detected - call InvalidateTracks()");
+                for (size_t i = 0; i < mPlaybackThreads.size(); i++) {
+                    PlaybackThread *thread = mPlaybackThreads.valueAt(i).get();
+                    thread->invalidateTracks(AUDIO_STREAM_MUSIC);
+                }
+           } else if ((value.find("OFFLINE", 0) != -1) ) {
+                ALOGV("ONLINE detected - what should I do?");
+           }
+        }
+
+#ifdef QCOM_DIRECTTRACK
+        key = String8(AudioParameter::keyADSPStatus);
+        if (param.get(key, value) == NO_ERROR) {
+            ALOGV("Set keyADSPStatus:%s", value.string());
+            if (value == "ONLINE" || value == "OFFLINE") {
+               if (!mDirectAudioTracks.isEmpty()) {
+                   for (i=0; i < mDirectAudioTracks.size(); i++) {
+                       mDirectAudioTracks.valueAt(i)->stream->common.set_parameters(
+                          &mDirectAudioTracks.valueAt(i)->stream->common, keyValuePairs.string());
+                   }
+               }
+           }
+        }
+#endif
+
         // disable AEC and NS if the device is a BT SCO headset supporting those pre processings
         AudioParameter param = AudioParameter(keyValuePairs);
         String8 value;
