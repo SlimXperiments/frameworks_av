@@ -66,7 +66,6 @@ LOCAL_SRC_FILES:=                         \
 LOCAL_C_INCLUDES:= \
         $(TOP)/frameworks/av/include/media/stagefright/timedtext \
         $(TOP)/frameworks/native/include/media/hardware \
-        $(TOP)/frameworks/native/include/media/openmax \
         $(TOP)/frameworks/native/services/connectivitymanager \
         $(TOP)/external/flac/include \
         $(TOP)/external/tremolo \
@@ -93,6 +92,13 @@ ifneq ($(filter caf bfam,$(TARGET_QCOM_AUDIO_VARIANT)),)
             LOCAL_CFLAGS += -DNO_TUNNEL_MODE_FOR_MULTICHANNEL
         endif
     endif
+endif
+
+ifneq ($(TI_CUSTOM_DOMX_PATH),)
+LOCAL_C_INCLUDES += $(TI_CUSTOM_DOMX_PATH)/omx_core/inc
+LOCAL_CPPFLAGS += -DUSE_TI_CUSTOM_DOMX
+else
+LOCAL_C_INCLUDES += $(TOP)/frameworks/native/include/media/openmax
 endif
 
 ifneq ($(TARGET_QCOM_MEDIA_VARIANT),)

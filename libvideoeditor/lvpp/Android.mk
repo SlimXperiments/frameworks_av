@@ -80,8 +80,12 @@ LOCAL_C_INCLUDES += \
     $(TOP)/frameworks/av/libvideoeditor/lvpp \
     $(TOP)/frameworks/av/services/audioflinger \
     $(TOP)/frameworks/native/include/media/editor \
-    $(TOP)/frameworks/native/include/media/openmax \
 
+ifneq ($(TI_CUSTOM_DOMX_PATH),)
+LOCAL_C_INCLUDES += $(TI_CUSTOM_DOMX_PATH)/omx_core/inc
+else
+LOCAL_C_INCLUDES += $(TOP)/frameworks/native/include/media/openmax
+endif
 
 LOCAL_SHARED_LIBRARIES += libdl
 
