@@ -165,7 +165,9 @@ enum {
     kKeyCryptoDefaultIVSize = 'cryS',  // int32_t
 
     kKeyPssh              = 'pssh',  // raw data
+#ifdef QCOM_HARDWARE
     kKeyTunnelException   = 'Ntnl', // not tunnel
+#endif
 };
 
 enum {
