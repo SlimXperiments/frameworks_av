@@ -565,15 +565,16 @@ status_t TSPacketizer::packetize(
             }
         }
 
-        size_t numPaddingBytes = sizeAvailableForPayload - numBytesOfPayload;
         ALOGV("packet 1 contains %zd padding bytes and %zd bytes of payload",
-              numPaddingBytes, numBytesOfPayload);
+              sizeAvailableForPayload - numBytesOfPayload, numBytesOfPayload);
 
         size_t numBytesOfPayloadRemaining = accessUnit->size() - numBytesOfPayload;
 
 #if 0
         // The following hopefully illustrates the logic that led to the
         // more efficient computation in the #else block...
+
+        size_t numPaddingBytes = sizeAvailableForPayload - numBytesOfPayload;
 
         while (numBytesOfPayloadRemaining > 0) {
             size_t sizeAvailableForPayload = 188 - 4;
