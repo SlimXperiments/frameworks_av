@@ -1141,8 +1141,6 @@ status_t AudioFlinger::setParameters(audio_io_handle_t ioHandle, const String8& 
 #endif
 
         // disable AEC and NS if the device is a BT SCO headset supporting those pre processings
-        AudioParameter param = AudioParameter(keyValuePairs);
-        String8 value;
         if (param.get(String8(AUDIO_PARAMETER_KEY_BT_NREC), value) == NO_ERROR) {
             bool btNrecIsOff = (value == AUDIO_PARAMETER_VALUE_OFF);
             if (mBtNrecIsOff != btNrecIsOff) {
