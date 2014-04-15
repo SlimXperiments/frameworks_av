@@ -384,7 +384,7 @@ void SoftAAC2::onQueueFilled(OMX_U32 portIndex) {
                 bool signalError = false;
                 if (inHeader->nFilledLen < 7) {
                     ALOGE("Audio data too short to contain even the ADTS header. "
-                          "Got %ld bytes.", inHeader->nFilledLen);
+                          "Got %d bytes.", inHeader->nFilledLen);
                     hexdump(adtsHeader, inHeader->nFilledLen);
                     signalError = true;
                 } else {
@@ -397,7 +397,7 @@ void SoftAAC2::onQueueFilled(OMX_U32 portIndex) {
 
                     if (inHeader->nFilledLen < aac_frame_length) {
                         ALOGE("Not enough audio data for the complete frame. "
-                              "Got %ld bytes, frame size according to the ADTS "
+                              "Got %d bytes, frame size according to the ADTS "
                               "header is %u bytes.",
                               inHeader->nFilledLen, aac_frame_length);
                         hexdump(adtsHeader, inHeader->nFilledLen);
@@ -567,6 +567,12 @@ void SoftAAC2::onPortFlushCompleted(OMX_U32 portIndex) {
         // depend on fragments from the last one decoded.
         // drain all existing data
         drainDecoder();
+        // force decoder loop to drop the first decoded buffer by resetting these state variables,
+        // but only if initialization has already happened.
+        if (mInputBufferCount != 0) {
+            mInputBufferCount = 1;
+            mStreamInfo->sampleRate = 0;
+        }
     }
 }
 
