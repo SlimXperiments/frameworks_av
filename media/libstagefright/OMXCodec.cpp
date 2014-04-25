@@ -4517,7 +4517,6 @@ status_t OMXCodec::read(
             if (emulateInputFlushCompletion) {
                 onCmdComplete(OMX_CommandFlush, kPortIndexInput);
             }
-
             if (emulateOutputFlushCompletion) {
                 onCmdComplete(OMX_CommandFlush, kPortIndexOutput);
             }

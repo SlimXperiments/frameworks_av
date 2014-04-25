@@ -914,7 +914,6 @@ sp<MediaSource> StagefrightRecorder::createAudioSource() {
             tunnelMime = MEDIA_MIMETYPE_AUDIO_AMR_WB;
         }
     }
-
     if ( tunneledSource ) {
         ALOGD("tunnel recording");
         sp<AudioSource> audioSource = NULL;

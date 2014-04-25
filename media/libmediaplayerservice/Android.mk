@@ -65,7 +65,6 @@ endif
 
 LOCAL_MODULE:= libmediaplayerservice
 
-
 LOCAL_32_BIT_ONLY := true
 
 ifeq ($(TARGET_ENABLE_QC_AV_ENHANCEMENTS),true)

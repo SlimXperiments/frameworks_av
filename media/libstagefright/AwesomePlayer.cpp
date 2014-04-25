@@ -1,4 +1,6 @@
 /*
+ * Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
+ * Not a Contribution.
  * Copyright (C) 2009 The Android Open Source Project
  * Copyright (c) 2014, The Linux Foundation. All rights reserved.
  * Not a Contribution.
@@ -68,7 +70,6 @@
 #ifdef QCOM_HARDWARE
 #include "include/ExtendedUtils.h"
 #endif
-
 
 #include <gui/IGraphicBufferProducer.h>
 #include <gui/Surface.h>
@@ -294,6 +295,46 @@ AwesomePlayer::~AwesomePlayer() {
 #ifdef ENABLE_AV_ENHANCEMENTS
     ExtendedUtils::drainSecurePool();
 #endif
+}
+
+void AwesomePlayer::printStats() {
+    char value[PROPERTY_VALUE_MAX];
+    property_get("persist.debug.sf.statistics", value, "0");
+    if (atoi(value) && mVideoSource != NULL) {
+        ALOGI("===========================\n"
+            "   videoDimensions(%d x %d)\n"
+            "   Total Video Frames Decoded(%lld)\n"
+            "   Total Video Frames Rendered(%lld)\n"
+            "   Total Playback Duration(%lld ms)\n"
+            "   numVideoFramesDropped(%lld)\n"
+            "   Average Frames Per Second(%.4f)\n"
+            "   Last Seek To Time(%lld ms)\n"
+            "   Last Paused Time(%lld ms)\n"
+            "   First Frame Latency (%lld ms)\n"
+            "   Number of times AV Sync Lost(%u)\n"
+            "   Max Video Ahead Time Delta(%u)\n"
+            "   Max Video Behind Time Delta(%u)\n"
+            "   Max Time Sync Loss(%u)\n"
+            "   EOS(%d)\n"
+            "   PLAYING(%d)\n"
+            "===========================\n\n",
+            mStats.mVideoWidth,
+            mStats.mVideoHeight,
+            mStats.mNumVideoFramesDecoded,
+            mStats.mTotalFrames,
+            mStats.mTotalTimeUs/1000,
+            mStats.mNumVideoFramesDropped,
+            mStats.mTotalTimeUs > 0 ? ((double)(mStats.mTotalFrames)*1E6)/((double)mStats.mTotalTimeUs) : 0,
+            mStats.mLastSeekToTimeMs,
+            mStats.mLastPausedTimeMs,
+            mStats.mFirstFrameLatencyUs/1000,
+            mStats.mNumTimesSyncLoss,
+            -mStats.mMaxEarlyDelta/1000,
+            mStats.mMaxLateDelta/1000,
+            mStats.mMaxTimeSyncLoss/1000,
+            (mFlags & VIDEO_AT_EOS) > 0,
+            (mFlags & PLAYING) > 0);
+    }
 }
 
 void AwesomePlayer::printStats() {

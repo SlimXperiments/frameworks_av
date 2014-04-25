@@ -185,7 +185,6 @@ AudioSource::AudioSource( audio_source_t inputSource, const sp<MetaData>& meta )
     }
     mAutoRampStartUs = 0;
     CHECK(channels == 1 || channels == 2);
-
     mRecord = new AudioRecord(
                 inputSource, sampleRate, mFormat,
                 channels > 1? AUDIO_CHANNEL_IN_STEREO:
@@ -353,7 +352,7 @@ status_t AudioSource::read(
     }
 
     while (mStarted && mBuffersReceived.empty()) {
-        mFrameAvailableCondition.wait(mLock);
+       mFrameAvailableCondition.wait(mLock);
     }
     if (!mStarted) {
         return OK;
