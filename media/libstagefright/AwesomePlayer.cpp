@@ -337,46 +337,6 @@ void AwesomePlayer::printStats() {
     }
 }
 
-void AwesomePlayer::printStats() {
-    char value[PROPERTY_VALUE_MAX];
-    property_get("persist.debug.sf.statistics", value, "0");
-    if (atoi(value) && mVideoSource != NULL) {
-        ALOGI("===========================\n"
-            "   videoDimensions(%d x %d)\n"
-            "   Total Video Frames Decoded(%lld)\n"
-            "   Total Video Frames Rendered(%lld)\n"
-            "   Total Playback Duration(%lld ms)\n"
-            "   numVideoFramesDropped(%lld)\n"
-            "   Average Frames Per Second(%.4f)\n"
-            "   Last Seek To Time(%lld ms)\n"
-            "   Last Paused Time(%lld ms)\n"
-            "   First Frame Latency (%lld ms)\n"
-            "   Number of times AV Sync Lost(%u)\n"
-            "   Max Video Ahead Time Delta(%u)\n"
-            "   Max Video Behind Time Delta(%u)\n"
-            "   Max Time Sync Loss(%u)\n"
-            "   EOS(%d)\n"
-            "   PLAYING(%d)\n"
-            "===========================\n\n",
-            mStats.mVideoWidth,
-            mStats.mVideoHeight,
-            mStats.mNumVideoFramesDecoded,
-            mStats.mTotalFrames,
-            mStats.mTotalTimeUs/1000,
-            mStats.mNumVideoFramesDropped,
-            mStats.mTotalTimeUs > 0 ? ((double)(mStats.mTotalFrames)*1E6)/((double)mStats.mTotalTimeUs) : 0,
-            mStats.mLastSeekToTimeMs,
-            mStats.mLastPausedTimeMs,
-            mStats.mFirstFrameLatencyUs/1000,
-            mStats.mNumTimesSyncLoss,
-            -mStats.mMaxEarlyDelta/1000,
-            mStats.mMaxLateDelta/1000,
-            mStats.mMaxTimeSyncLoss/1000,
-            (mFlags & VIDEO_AT_EOS) > 0,
-            (mFlags & PLAYING) > 0);
-    }
-}
-
 void AwesomePlayer::cancelPlayerEvents(bool keepNotifications) {
     mQueue.cancelEvent(mVideoEvent->eventID());
     mVideoEventPending = false;
