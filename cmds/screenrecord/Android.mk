@@ -44,6 +44,4 @@ LOCAL_MODULE_TAGS := optional
 
 LOCAL_MODULE:= screenrecord
 
-LOCAL_32_BIT_ONLY := true
-
 include $(BUILD_EXECUTABLE)
