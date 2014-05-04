@@ -2344,7 +2344,7 @@ void AwesomePlayer::onVideoEvent() {
     }
 
     if (wasSeeking == SEEK_VIDEO_ONLY) {
-        nowUs = nowUs = estimateRealTimeUs(ts, systemTimeUs) - mTimeSourceDeltaUs;
+        nowUs = estimateRealTimeUs(ts, systemTimeUs) - mTimeSourceDeltaUs;
 
         latenessUs = nowUs - timeUs;
 
@@ -2355,7 +2355,6 @@ void AwesomePlayer::onVideoEvent() {
         }
     }
 
-    int64_t latenessUs = 0;
     if (wasSeeking == NO_SEEK) {
         // Let's display the first frame after seeking right away.
 
