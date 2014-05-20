@@ -4123,7 +4123,8 @@ void AudioFlinger::OffloadThread::threadLoop_exit()
         mMixerStatus = MIXER_DRAIN_ALL;
         threadLoop_drain();
     }
-    if (mCallbackThread != NULL) {
+    if (mUseAsyncWrite && mCallbackThread != NULL) {
+        ALOG_ASSERT(mCallbackThread != 0);
         mCallbackThread->exit();
     }
     PlaybackThread::threadLoop_exit();
