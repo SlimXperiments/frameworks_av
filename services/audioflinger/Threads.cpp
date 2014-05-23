@@ -1188,7 +1188,7 @@ void AudioFlinger::PlaybackThread::dumpTracks(int fd, const Vector<String16>& ar
 
     // These values are "raw"; they will wrap around.  See prepareTracks_l() for a better way.
     FastTrackUnderruns underruns = getFastTrackUnderruns(0);
-    fdprintf(fd, "Normal mixer raw underrun counters: partial=%u empty=%u\n",
+    dprintf(fd, "Normal mixer raw underrun counters: partial=%u empty=%u\n",
             underruns.mBitFields.mPartial, underruns.mBitFields.mEmpty);
 }
 
@@ -1216,7 +1216,7 @@ void AudioFlinger::PlaybackThread::dumpInternals(int fd, const Vector<String16>&
     snprintf(buffer, SIZE, "mix buffer : %p\n", mMixBuffer);
     result.append(buffer);
     write(fd, result.string(), result.size());
-    fdprintf(fd, "Fast track availMask=%#x\n", mFastTrackAvailMask);
+    dprintf(fd, "Fast track availMask=%#x\n", mFastTrackAvailMask);
 
     dumpBase(fd, args);
 }
@@ -2743,7 +2743,7 @@ AudioFlinger::MixerThread::~MixerThread()
         if (state->mCommand == FastMixerState::COLD_IDLE) {
             int32_t old = android_atomic_inc(&mFastMixerFutex);
             if (old == -1) {
-                __futex_syscall3(&mFastMixerFutex, FUTEX_WAKE_PRIVATE, 1);
+                (void) syscall(__NR_futex, &mFastMixerFutex, FUTEX_WAKE_PRIVATE, 1);
             }
         }
         state->mCommand = FastMixerState::EXIT;
@@ -2803,7 +2803,7 @@ ssize_t AudioFlinger::MixerThread::threadLoop_write()
             if (state->mCommand == FastMixerState::COLD_IDLE) {
                 int32_t old = android_atomic_inc(&mFastMixerFutex);
                 if (old == -1) {
-                    __futex_syscall3(&mFastMixerFutex, FUTEX_WAKE_PRIVATE, 1);
+                    (void) syscall(__NR_futex, &mFastMixerFutex, FUTEX_WAKE_PRIVATE, 1);
                 }
 #ifdef AUDIO_WATCHDOG
                 if (mAudioWatchdog != 0) {

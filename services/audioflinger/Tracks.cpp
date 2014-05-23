@@ -23,6 +23,7 @@
 
 #include "Configuration.h"
 #include <math.h>
+#include <sys/syscall.h>
 #include <utils/Log.h>
 
 #include <private/media/AudioTrackShared.h>
@@ -1058,7 +1059,7 @@ void AudioFlinger::PlaybackThread::Track::invalidate()
     android_atomic_or(CBLK_INVALID, &cblk->mFlags);
     android_atomic_release_store(0x40000000, &cblk->mFutex);
     // client is not in server, so FUTEX_WAKE is needed instead of FUTEX_WAKE_PRIVATE
-    (void) __futex_syscall3(&cblk->mFutex, FUTEX_WAKE, INT_MAX);
+    (void) syscall(__NR_futex, &cblk->mFutex, FUTEX_WAKE, INT_MAX);
     mIsInvalid = true;
 }
 
@@ -1983,7 +1984,7 @@ void AudioFlinger::RecordThread::RecordTrack::invalidate()
     android_atomic_or(CBLK_INVALID, &cblk->mFlags);
     android_atomic_release_store(0x40000000, &cblk->mFutex);
     // client is not in server, so FUTEX_WAKE is needed instead of FUTEX_WAKE_PRIVATE
-    (void) __futex_syscall3(&cblk->mFutex, FUTEX_WAKE, INT_MAX);
+    (void) syscall(__NR_futex, &cblk->mFutex, FUTEX_WAKE, INT_MAX);
 }
 
 
