@@ -1805,7 +1805,6 @@ OMXCodec::OMXCodec(
 #ifdef QCOM_LEGACY_OMX
               || !strncmp(componentName, "OMX.qcom",8)
 #endif
-              )
               || !strncmp(componentName, "OMX.ffmpeg.", 11))
                         ? NULL : nativeWindow),
 #ifdef QCOM_HARDWARE
