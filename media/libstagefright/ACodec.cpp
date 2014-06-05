@@ -379,6 +379,7 @@ ACodec::ACodec()
       mIsEncoder(false),
       mUseMetadataOnEncoderOutput(false),
       mShutdownInProgress(false),
+      mIsConfiguredForAdaptivePlayback(false),
       mEncoderDelay(0),
       mEncoderPadding(0),
       mChannelMaskPresent(false),
@@ -386,7 +387,8 @@ ACodec::ACodec()
       mDequeueCounter(0),
       mStoreMetaDataInOutputBuffers(false),
       mMetaDataBuffersToSubmit(0),
-      mRepeatFrameDelayUs(-1ll) {
+      mRepeatFrameDelayUs(-1ll),
+      mMaxPtsGapUs(-1l) {
     mUninitializedState = new UninitializedState(this);
     mLoadedState = new LoadedState(this);
     mLoadedToIdleState = new LoadedToIdleState(this);
@@ -466,6 +468,18 @@ void ACodec::initiateShutdown(bool keepComponentAllocated) {
 
 void ACodec::signalRequestIDRFrame() {
     (new AMessage(kWhatRequestIDRFrame, id()))->post();
+}
+
+// *** NOTE: THE FOLLOWING WORKAROUND WILL BE REMOVED ***
+// Some codecs may return input buffers before having them processed.
+// This causes a halt if we already signaled an EOS on the input
+// port.  For now keep submitting an output buffer if there was an
+// EOS on the input port, but not yet on the output port.
+void ACodec::signalSubmitOutputMetaDataBufferIfEOS_workaround() {
+    if (mPortEOS[kPortIndexInput] && !mPortEOS[kPortIndexOutput] &&
+            mMetaDataBuffersToSubmit > 0) {
+        (new AMessage(kWhatSubmitOutputMetaDataBufferIfEOS, id()))->post();
+    }
 }
 
 status_t ACodec::allocateBuffersOnPort(OMX_U32 portIndex) {
@@ -651,18 +665,34 @@ status_t ACodec::configureOutputBuffersFromNativeWindow(
         return err;
     }
 
-    // XXX: Is this the right logic to use?  It's not clear to me what the OMX
-    // buffer counts refer to - how do they account for the renderer holding on
-    // to buffers?
-    if (def.nBufferCountActual < def.nBufferCountMin + *minUndequeuedBuffers) {
-        OMX_U32 newBufferCount = def.nBufferCountMin + *minUndequeuedBuffers;
+    // FIXME: assume that surface is controlled by app (native window
+    // returns the number for the case when surface is not controlled by app)
+    // FIXME2: This means that minUndeqeueudBufs can be 1 larger than reported
+    // For now, try to allocate 1 more buffer, but don't fail if unsuccessful
+
+    // Use conservative allocation while also trying to reduce starvation
+    //
+    // 1. allocate at least nBufferCountMin + minUndequeuedBuffers - that is the
+    //    minimum needed for the consumer to be able to work
+    // 2. try to allocate two (2) additional buffers to reduce starvation from
+    //    the consumer
+    //    plus an extra buffer to account for incorrect minUndequeuedBufs
+    for (OMX_U32 extraBuffers = 2 + 1; /* condition inside loop */; extraBuffers--) {
+        OMX_U32 newBufferCount =
+            def.nBufferCountMin + *minUndequeuedBuffers + extraBuffers;
         def.nBufferCountActual = newBufferCount;
         err = mOMX->setParameter(
                 mNode, OMX_IndexParamPortDefinition, &def, sizeof(def));
 
-        if (err != OK) {
-            ALOGE("[%s] setting nBufferCountActual to %lu failed: %d",
-                    mComponentName.c_str(), newBufferCount, err);
+        if (err == OK) {
+            *minUndequeuedBuffers += extraBuffers;
+            break;
+        }
+
+        ALOGW("[%s] setting nBufferCountActual to %lu failed: %d",
+                mComponentName.c_str(), newBufferCount, err);
+        /* exit condition */
+        if (extraBuffers == 0) {
             return err;
         }
     }
@@ -687,6 +717,7 @@ status_t ACodec::allocateOutputBuffersFromNativeWindow() {
             &bufferCount, &bufferSize, &minUndequeuedBuffers);
     if (err != 0)
         return err;
+    mNumUndequeuedBuffers = minUndequeuedBuffers;
 
     ALOGV("[%s] Allocating %lu buffers from a native window of size %lu on "
          "output port",
@@ -752,6 +783,7 @@ status_t ACodec::allocateOutputMetaDataBuffers() {
             &bufferCount, &bufferSize, &minUndequeuedBuffers);
     if (err != 0)
         return err;
+    mNumUndequeuedBuffers = minUndequeuedBuffers;
 
     ALOGV("[%s] Allocating %lu meta buffers on output port",
          mComponentName.c_str(), bufferCount);
@@ -1150,6 +1182,10 @@ status_t ACodec::configureCodec(
                     &mRepeatFrameDelayUs)) {
             mRepeatFrameDelayUs = -1ll;
         }
+
+        if (!msg->findInt64("max-pts-gap-to-encoder", &mMaxPtsGapUs)) {
+            mMaxPtsGapUs = -1l;
+        }
     }
 
     // Always try to enable dynamic output buffers on native surface
@@ -1158,6 +1194,7 @@ status_t ACodec::configureCodec(
             obj != NULL;
     mStoreMetaDataInOutputBuffers = false;
     bool bAdaptivePlaybackMode = false;
+    mIsConfiguredForAdaptivePlayback = false;
     if (!encoder && video && haveNativeWindow) {
         int32_t preferAdaptive = 0;
         if (msg->findInt32("prefer-adaptive-playback", &preferAdaptive)
@@ -1212,6 +1249,7 @@ status_t ACodec::configureCodec(
                         "[%s] prepareForAdaptivePlayback failed w/ err %d",
                         mComponentName.c_str(), err);
                 bAdaptivePlaybackMode = (err == OK);
+                mIsConfiguredForAdaptivePlayback = (err == OK);
             }
             // if Adaptive mode was tried first and codec failed it, try dynamic mode
             if (err != OK && preferAdaptive) {
@@ -1226,6 +1264,7 @@ status_t ACodec::configureCodec(
         } else {
             ALOGV("[%s] storeMetaDataInBuffers succeeded", mComponentName.c_str());
             mStoreMetaDataInOutputBuffers = true;
+            mIsConfiguredForAdaptivePlayback = true;
         }
 
         ALOGI("DRC Mode: %s",(mStoreMetaDataInOutputBuffers ? "Dynamic Buffer Mode" :
@@ -2517,19 +2556,7 @@ void ACodec::waitUntilAllPossibleNativeWindowBuffersAreReturnedToUs() {
         return;
     }
 
-    int minUndequeuedBufs = 0;
-    status_t err = mNativeWindow->query(
-            mNativeWindow.get(), NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS,
-            &minUndequeuedBufs);
-
-    if (err != OK) {
-        ALOGE("[%s] NATIVE_WINDOW_MIN_UNDEQUEUED_BUFFERS query failed: %s (%d)",
-                mComponentName.c_str(), strerror(-err), -err);
-
-        minUndequeuedBufs = 0;
-    }
-
-    while (countBuffersOwnedByNativeWindow() > (size_t)minUndequeuedBufs
+    while (countBuffersOwnedByNativeWindow() > mNumUndequeuedBuffers
             && dequeueBufferFromNativeWindow() != NULL) {
         // these buffers will be submitted as regular buffers; account for this
         if (mStoreMetaDataInOutputBuffers && mMetaDataBuffersToSubmit > 0) {
@@ -3363,11 +3390,11 @@ void ACodec::BaseState::onInputBufferFilled(const sp<AMessage> &msg) {
                 mCodec->mInputEOSResult = err;
             }
             break;
-
-            default:
-                CHECK_EQ((int)mode, (int)FREE_BUFFERS);
-                break;
         }
+
+        default:
+            CHECK_EQ((int)mode, (int)FREE_BUFFERS);
+            break;
     }
 }
 
@@ -3853,6 +3880,7 @@ void ACodec::LoadedState::stateEntered() {
     mCodec->mDequeueCounter = 0;
     mCodec->mMetaDataBuffersToSubmit = 0;
     mCodec->mRepeatFrameDelayUs = -1ll;
+    mCodec->mIsConfiguredForAdaptivePlayback = false;
 
     if (mCodec->mShutdownInProgress) {
         bool keepComponentAllocated = mCodec->mKeepComponentAllocated;
@@ -4019,6 +4047,21 @@ void ACodec::LoadedState::onCreateInputSurface(
         if (err != OK) {
             ALOGE("[%s] Unable to configure option to repeat previous "
                   "frames (err %d)",
+                  mCodec->mComponentName.c_str(),
+                  err);
+        }
+    }
+
+    if (err == OK && mCodec->mMaxPtsGapUs > 0l) {
+        err = mCodec->mOMX->setInternalOption(
+                mCodec->mNode,
+                kPortIndexInput,
+                IOMX::INTERNAL_OPTION_MAX_TIMESTAMP_GAP,
+                &mCodec->mMaxPtsGapUs,
+                sizeof(mCodec->mMaxPtsGapUs));
+
+        if (err != OK) {
+            ALOGE("[%s] Unable to configure max timestamp gap (err %d)",
                   mCodec->mComponentName.c_str(),
                   err);
         }
@@ -4222,7 +4265,6 @@ void ACodec::ExecutingState::submitOutputMetaBuffers() {
                 break;
         }
     }
-
 }
 
 void ACodec::ExecutingState::submitRegularOutputBuffers() {
@@ -4369,6 +4411,19 @@ bool ACodec::ExecutingState::onMessageReceived(const sp<AMessage> &msg) {
             mCodec->onSignalEndOfInputStream();
             handled = true;
             break;
+        }
+
+        // *** NOTE: THE FOLLOWING WORKAROUND WILL BE REMOVED ***
+        case kWhatSubmitOutputMetaDataBufferIfEOS:
+        {
+            if (mCodec->mPortEOS[kPortIndexInput] &&
+                    !mCodec->mPortEOS[kPortIndexOutput]) {
+                status_t err = mCodec->submitOutputMetaDataBuffer();
+                if (err == OK) {
+                    mCodec->signalSubmitOutputMetaDataBufferIfEOS_workaround();
+                }
+            }
+            return true;
         }
 
         default:
